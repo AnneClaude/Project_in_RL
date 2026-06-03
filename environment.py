@@ -31,6 +31,7 @@ class TrafficEnv:
         self.ew_queue = 0
         self.green_light = 0  # 0: NS green, 1: EW green
         self.steps = 0
+        self.time_since_switch = 3
         
         self.reset()
 
@@ -49,6 +50,7 @@ class TrafficEnv:
         self.green_light = random.choice([0, 1])
         
         self.steps = 0
+        self.time_since_switch = 3
         return self._get_state()
 
     def step(self, action: int) -> Tuple[Tuple[int, int, int], float, bool, Dict[str, Any]]:
@@ -65,8 +67,12 @@ class TrafficEnv:
             info (dict): Diagnostic info.
         """
         # 1. Update the green light state if action is 1 (switch)
-        if action == 1:
+        # Implement minimum green light time constraint (at least 3 steps)
+        if action == 1 and self.time_since_switch >= 3:
             self.green_light = 1 - self.green_light
+            self.time_since_switch = 0
+        else:
+            self.time_since_switch += 1
             
         # 2. Simulate departures (cars leaving the intersection)
         # Cars can only leave if the light is green in their direction
@@ -83,9 +89,9 @@ class TrafficEnv:
                 departures_ew = min(self.ew_queue, random.choice([1, 2]))
                 
         # 3. Simulate random arrivals (new cars arriving at the intersection)
-        # Let's say there is a 40% chance of a new car arriving in each direction
-        arrivals_ns = 1 if random.random() < 0.4 else 0
-        arrivals_ew = 1 if random.random() < 0.4 else 0
+        # Unequal traffic flow: 60% chance for North/South, 20% chance for East/West
+        arrivals_ns = 1 if random.random() < 0.6 else 0
+        arrivals_ew = 1 if random.random() < 0.2 else 0
         
         # 4. Update the queue lengths (clamped between 0 and max_queue)
         self.ns_queue = min(self.max_queue, max(0, self.ns_queue - departures_ns + arrivals_ns))

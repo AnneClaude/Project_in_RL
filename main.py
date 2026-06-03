@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 from environment import TrafficEnv
 from agent import QLearningAgent
 
@@ -140,8 +141,25 @@ if __name__ == "__main__":
     agent = QLearningAgent(max_queue=5)
     
     # 2. Train agent
-    train_agent(env, agent, num_episodes=1000)
+    rewards = train_agent(env, agent, num_episodes=1000)
     
+    # Plot the learning curve and save it
+    plt.figure(figsize=(10, 5))
+    plt.plot(rewards, alpha=0.3, color='blue', label='Episode Reward')
+    
+    # Calculate and plot moving average
+    window = 50
+    moving_avg = np.convolve(rewards, np.ones(window)/window, mode='valid')
+    plt.plot(np.arange(window-1, len(rewards)), moving_avg, color='red', linewidth=2, label=f'{window}-Episode Moving Average')
+    
+    plt.title("Episode vs. Total Reward")
+    plt.xlabel("Episode")
+    plt.ylabel("Total Reward")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("learning_curve.png")
+    plt.close()
+    print("Saved learning curve plot to 'learning_curve.png'.\n")
     # 3. Evaluate and compare policies
     print("Evaluating policies (averaged over 100 episodes):")
     greedy_reward, greedy_cars = evaluate_policy(env, agent, mode="greedy", num_episodes=100)
