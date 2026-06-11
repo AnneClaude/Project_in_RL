@@ -66,45 +66,64 @@ class TrafficEnv:
             done (bool): Whether the episode has finished.
             info (dict): Diagnostic info.
         """
-        # 1. Update the green light state if action is 1 (switch)
-        # Implement minimum green light time constraint (at least 3 steps)
-        if action == 1 and self.time_since_switch >= 3:
-            self.green_light = 1 - self.green_light
-            self.time_since_switch = 0
-        else:
-            self.time_since_switch += 1
-            
-        # 2. Simulate departures (cars leaving the intersection)
-        # Cars can only leave if the light is green in their direction
+        # We have 4 light states:
+        # 0: NS Green, 1: EW Green
+        # 2: NS Yellow (transitioning from 0 -> 1)
+        # 3: EW Yellow (transitioning from 1 -> 0)
+        
         departures_ns = 0
         departures_ew = 0
         
-        if self.green_light == 0:  # North/South is green
-            # NS cars leave. Assume 1 or 2 cars can pass during the green phase.
-            if self.ns_queue > 0:
-                departures_ns = min(self.ns_queue, random.choice([1, 2]))
-        else:  # East/West is green
-            # EW cars leave.
-            if self.ew_queue > 0:
-                departures_ew = min(self.ew_queue, random.choice([1, 2]))
-                
-        # 3. Simulate random arrivals (new cars arriving at the intersection)
-        # Unequal traffic flow: 60% chance for North/South, 20% chance for East/West
+        if self.green_light in [2, 3]:
+            # Yellow light phase automatically transitions to green in the next phase
+            prev_light = self.green_light
+            if prev_light == 2:
+                self.green_light = 1  # NS Yellow -> EW Green
+                # EW departures occur now that it is green for EW
+                if self.ew_queue > 0:
+                    departures_ew = min(self.ew_queue, random.choice([1, 2]))
+            else:
+                self.green_light = 0  # EW Yellow -> NS Green
+                # NS departures occur
+                if self.ns_queue > 0:
+                    departures_ns = min(self.ns_queue, random.choice([1, 2]))
+            self.time_since_switch = 0
+            
+        else:  # Active Green light phase
+            if action == 1 and self.time_since_switch >= 3:
+                # Transition to corresponding yellow phase
+                if self.green_light == 0:
+                    self.green_light = 2  # NS Green -> NS Yellow
+                else:
+                    self.green_light = 3  # EW Green -> EW Yellow
+                # No departures can occur during a yellow phase
+                self.time_since_switch = 0
+            else:
+                # Keep active green phase
+                self.time_since_switch += 1
+                if self.green_light == 0:  # NS Green
+                    if self.ns_queue > 0:
+                        departures_ns = min(self.ns_queue, random.choice([1, 2]))
+                else:  # EW Green
+                    if self.ew_queue > 0:
+                        departures_ew = min(self.ew_queue, random.choice([1, 2]))
+                        
+        # 2. Simulate random arrivals (unequal traffic flow)
         arrivals_ns = 1 if random.random() < 0.6 else 0
         arrivals_ew = 1 if random.random() < 0.2 else 0
         
-        # 4. Update the queue lengths (clamped between 0 and max_queue)
+        # 3. Update the queue lengths (clamped between 0 and max_queue)
         self.ns_queue = min(self.max_queue, max(0, self.ns_queue - departures_ns + arrivals_ns))
         self.ew_queue = min(self.max_queue, max(0, self.ew_queue - departures_ew + arrivals_ew))
         
-        # 5. Calculate reward (negative sum of waiting cars)
+        # 4. Calculate reward (negative sum of waiting cars)
         reward = float(-(self.ns_queue + self.ew_queue))
         
-        # 6. Check termination condition
+        # 5. Check termination condition
         self.steps += 1
         done = self.steps >= self.max_steps
         
-        # 7. Get state and info
+        # 6. Get state and info
         state = self._get_state()
         info = {
             "departures": (departures_ns, departures_ew),
@@ -116,3 +135,4 @@ class TrafficEnv:
     def _get_state(self) -> Tuple[int, int, int]:
         """Helper method to return the state tuple."""
         return (self.ns_queue, self.ew_queue, self.green_light)
+

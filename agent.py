@@ -13,7 +13,7 @@ class QLearningAgent:
     def __init__(
         self, 
         max_queue: int = 5, 
-        num_lights: int = 2, 
+        num_lights: int = 4, 
         num_actions: int = 2
     ):
         """

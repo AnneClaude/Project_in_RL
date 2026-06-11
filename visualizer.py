@@ -18,6 +18,7 @@ LINE_WHITE = (225, 225, 230)    # Soft white stop line
 PED_STRIPE = (100, 104, 115)    # Slate grey for crosswalk stripes
 RED_LIGHT = (239, 83, 80)       # Glowing red
 GREEN_LIGHT = (102, 187, 106)   # Glowing green
+YELLOW_LIGHT = (255, 202, 40)    # Glowing gold yellow
 BULB_OFF = (45, 45, 45)         # Dark grey bulb off
 HOUSING_BLACK = (25, 25, 25)    # Dark traffic light casing
 CAR_NS_COLOR = (30, 136, 229)   # Vibrant ocean blue
@@ -138,28 +139,50 @@ def draw_light_bulb(screen, center, color, is_on):
 
 
 def draw_overhead_lights(screen, light_state):
-    """Draws the overhead gantries AFTER the cars so they appear on top."""
-    ns_is_green = (light_state == 0)
+    """Draws the overhead gantries with 3-bulb traffic lights."""
+    # Light states:
+    # 0: NS Green, EW Red
+    # 1: EW Green, NS Red
+    # 2: NS Yellow, EW Red
+    # 3: EW Yellow, NS Red
     
-    # North Incoming Lane
-    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 + 5, HEIGHT//2 - 70, 40, 16), border_radius=4)
-    draw_light_bulb(screen, (WIDTH//2 + 15, HEIGHT//2 - 62), RED_LIGHT, not ns_is_green)
-    draw_light_bulb(screen, (WIDTH//2 + 31, HEIGHT//2 - 62), GREEN_LIGHT, ns_is_green)
+    # NS bulb statuses
+    ns_red = (light_state == 1 or light_state == 3)
+    ns_yellow = (light_state == 2)
+    ns_green = (light_state == 0)
     
-    # South Incoming Lane
-    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 - 45, HEIGHT//2 + 55, 40, 16), border_radius=4)
-    draw_light_bulb(screen, (WIDTH//2 - 35, HEIGHT//2 + 63), RED_LIGHT, not ns_is_green)
-    draw_light_bulb(screen, (WIDTH//2 - 19, HEIGHT//2 + 63), GREEN_LIGHT, ns_is_green)
+    # EW bulb statuses
+    ew_red = (light_state == 0 or light_state == 2)
+    ew_yellow = (light_state == 3)
+    ew_green = (light_state == 1)
     
-    # West Incoming Lane
-    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 - 70, HEIGHT//2 + 5, 16, 40), border_radius=4)
-    draw_light_bulb(screen, (WIDTH//2 - 62, HEIGHT//2 + 15), RED_LIGHT, ns_is_green)
-    draw_light_bulb(screen, (WIDTH//2 - 62, HEIGHT//2 + 31), GREEN_LIGHT, not ns_is_green)
+    # --- North Incoming Lane (facing down) ---
+    # Casing size: 54 wide, 16 high
+    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 + 5, HEIGHT//2 - 70, 54, 16), border_radius=4)
+    # Bulbs: Red, Yellow, Green
+    draw_light_bulb(screen, (WIDTH//2 + 14, HEIGHT//2 - 62), RED_LIGHT, ns_red)
+    draw_light_bulb(screen, (WIDTH//2 + 32, HEIGHT//2 - 62), YELLOW_LIGHT, ns_yellow)
+    draw_light_bulb(screen, (WIDTH//2 + 50, HEIGHT//2 - 62), GREEN_LIGHT, ns_green)
     
-    # East Incoming Lane
-    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 + 55, HEIGHT//2 - 45, 16, 40), border_radius=4)
-    draw_light_bulb(screen, (WIDTH//2 + 63, HEIGHT//2 - 35), RED_LIGHT, ns_is_green)
-    draw_light_bulb(screen, (WIDTH//2 + 63, HEIGHT//2 - 19), GREEN_LIGHT, not ns_is_green)
+    # --- South Incoming Lane (facing up) ---
+    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 - 59, HEIGHT//2 + 55, 54, 16), border_radius=4)
+    draw_light_bulb(screen, (WIDTH//2 - 50, HEIGHT//2 + 63), RED_LIGHT, ns_red)
+    draw_light_bulb(screen, (WIDTH//2 - 32, HEIGHT//2 + 63), YELLOW_LIGHT, ns_yellow)
+    draw_light_bulb(screen, (WIDTH//2 - 14, HEIGHT//2 + 63), GREEN_LIGHT, ns_green)
+    
+    # --- West Incoming Lane (facing right) ---
+    # Casing size: 16 wide, 54 high
+    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 - 70, HEIGHT//2 + 5, 16, 54), border_radius=4)
+    # Bulbs: Red, Yellow, Green (vertical top to bottom)
+    draw_light_bulb(screen, (WIDTH//2 - 62, HEIGHT//2 + 14), RED_LIGHT, ew_red)
+    draw_light_bulb(screen, (WIDTH//2 - 62, HEIGHT//2 + 32), YELLOW_LIGHT, ew_yellow)
+    draw_light_bulb(screen, (WIDTH//2 - 62, HEIGHT//2 + 50), GREEN_LIGHT, ew_green)
+    
+    # --- East Incoming Lane (facing left) ---
+    pygame.draw.rect(screen, HOUSING_BLACK, (WIDTH//2 + 55, HEIGHT//2 - 59, 16, 54), border_radius=4)
+    draw_light_bulb(screen, (WIDTH//2 + 63, HEIGHT//2 - 50), RED_LIGHT, ew_red)
+    draw_light_bulb(screen, (WIDTH//2 + 63, HEIGHT//2 - 32), YELLOW_LIGHT, ew_yellow)
+    draw_light_bulb(screen, (WIDTH//2 + 63, HEIGHT//2 - 14), GREEN_LIGHT, ew_green)
 
 
 def draw_queued_cars(screen, ns_queue, ew_queue):
@@ -223,30 +246,37 @@ def run_visualization(agent, env, mode):
         if current_time - last_logic_time > LOGIC_DELAY_MS:
             prev_ns, prev_ew, prev_light = state
             
-            # Action selection based on selected mode
-            if mode == "q_learning" and agent is not None:
-                raw_action = agent.choose_action(state, epsilon=0.0)
-            elif mode == "sarsa" and agent is not None:
-                raw_action = agent.choose_action(state, epsilon=0.0)
-            elif mode == "lqf":
-                if prev_light == 0:  # NS has green
-                    raw_action = 1 if prev_ew > prev_ns and env.time_since_switch >= 3 else 0
-                else:  # EW has green
-                    raw_action = 1 if prev_ns > prev_ew and env.time_since_switch >= 3 else 0
-            elif mode == "fixed":
-                raw_action = 1 if env.steps > 0 and env.steps % 5 == 0 else 0
-            else:  # random
-                raw_action = random.choice([0, 1])
+            if prev_light in [2, 3]:
+                raw_action = 0
+                agent_action = "YELLOW TRANSITION"
+            else:
+                # Action selection based on selected mode
+                if mode == "q_learning" and agent is not None:
+                    raw_action = agent.choose_action(state, epsilon=0.0)
+                elif mode == "sarsa" and agent is not None:
+                    raw_action = agent.choose_action(state, epsilon=0.0)
+                elif mode == "lqf":
+                    if prev_light == 0:  # NS has green
+                        raw_action = 1 if prev_ew > prev_ns and env.time_since_switch >= 3 else 0
+                    elif prev_light == 1:  # EW has green
+                        raw_action = 1 if prev_ns > prev_ew and env.time_since_switch >= 3 else 0
+                    else:
+                        raw_action = 0
+                elif mode == "fixed":
+                    raw_action = 1 if env.steps > 0 and env.steps % 5 == 0 else 0
+                else:  # random
+                    raw_action = random.choice([0, 1])
+                    
+                agent_action = "SWITCH LIGHT" if raw_action == 1 else "HOLD LIGHT"
                 
-            agent_action = "SWITCH LIGHT" if raw_action == 1 else "HOLD LIGHT"
             state, reward, done, _ = env.step(raw_action)
             
             if done:
                 state = env.reset()
             
-            if prev_light == 0 and prev_ns > 0:
+            if (prev_light == 0 or prev_light == 3) and prev_ns > 0:
                 animating_cars.append(AnimatedCar(WIDTH//2 + 12, HEIGHT//2 - 85, 0, 8, CAR_NS_COLOR, True))
-            elif prev_light == 1 and prev_ew > 0:
+            elif (prev_light == 1 or prev_light == 2) and prev_ew > 0:
                 animating_cars.append(AnimatedCar(WIDTH//2 - 85, HEIGHT//2 + 12, 8, 0, CAR_EW_COLOR, False))
                 
             ns, ew, light = state

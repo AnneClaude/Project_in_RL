@@ -115,11 +115,13 @@ def evaluate_policy(env: TrafficEnv, agent=None, mode: str = "greedy", num_episo
                         action = 1
                     else:
                         action = 0
-                else:  # EW has green
+                elif green_light == 1:  # EW has green
                     if ns_queue > ew_queue and env.time_since_switch >= 3:
                         action = 1
                     else:
                         action = 0
+                else:  # Yellow transitioning states (2 or 3)
+                    action = 0
             else:  # random
                 action = random.choice([0, 1])
                 
@@ -207,6 +209,7 @@ def run_comparison():
     colors = ['#1565c0', '#d84315', '#2e7d32', '#f57f17', '#6a1b9a', '#c62828']
     
     # Plot rewards
+    ax1.set_xticks(range(len(strategies)))
     bars1 = ax1.bar(strategies, rewards, color=colors, edgecolor='black', alpha=0.85)
     ax1.set_title("Average Episode Reward (Higher is Better)", fontsize=12, fontweight='bold', pad=10)
     ax1.set_ylabel("Reward", fontsize=11)
@@ -219,6 +222,7 @@ def run_comparison():
         ax1.text(bar.get_x() + bar.get_width()/2, yval - (5 if yval < 0 else -5), f"{yval:.1f}", ha='center', va='bottom', fontsize=9, fontweight='bold')
         
     # Plot average waiting cars
+    ax2.set_xticks(range(len(strategies)))
     bars2 = ax2.bar(strategies, cars, color=colors, edgecolor='black', alpha=0.85)
     ax2.set_title("Average Waiting Cars/Step (Lower is Better)", fontsize=12, fontweight='bold', pad=10)
     ax2.set_ylabel("Cars", fontsize=11)
