@@ -100,3 +100,54 @@ class QLearningAgent:
         
         # Update the Q-table
         self.q_table[ns, ew, light, action] = current_q + alpha * td_error
+
+class SARSAAgent(QLearningAgent):
+    """
+    A SARSA (State-Action-Reward-State-Action) agent that learns to optimize traffic signal switching.
+    
+    SARSA is an on-policy RL algorithm, meaning it updates its Q-table
+    using the action actually selected in the next state under the current policy,
+    rather than taking the maximum Q-value.
+    """
+    
+    def update_q_table(
+        self, 
+        state: Tuple[int, int, int], 
+        action: int, 
+        reward: float, 
+        next_state: Tuple[int, int, int], 
+        next_action: int,
+        alpha: float, 
+        gamma: float
+    ) -> None:
+        """
+        Updates the Q-table using the SARSA update rule:
+        Q(s, a) = Q(s, a) + alpha * (reward + gamma * Q(s', a') - Q(s, a))
+        
+        Args:
+            state (Tuple[int, int, int]): The current state before action.
+            action (int): The action taken.
+            reward (float): The reward received.
+            next_state (Tuple[int, int, int]): The state transition occurred.
+            next_action (int): The action chosen in the next state.
+            alpha (float): Learning rate.
+            gamma (float): Discount factor.
+        """
+        ns, ew, light = state
+        next_ns, next_ew, next_light = next_state
+        
+        # Get current estimate
+        current_q = self.q_table[ns, ew, light, action]
+        
+        # Get estimated value of the next state-action pair (on-policy)
+        next_q = self.q_table[next_ns, next_ew, next_light, next_action]
+        
+        # Calculate the temporal difference target
+        td_target = reward + gamma * next_q
+        
+        # Temporal difference error
+        td_error = td_target - current_q
+        
+        # Update the Q-table
+        self.q_table[ns, ew, light, action] = current_q + alpha * td_error
+
