@@ -1,3 +1,4 @@
+from numpy import random
 import pygame
 import sys
 import numpy as np
@@ -199,16 +200,17 @@ def draw_queued_cars(screen, ns_queue, ew_queue):
         draw_sleek_car(screen, x, y, False, CAR_EW_COLOR)
 
 
-def draw_hud(screen, font, ns, ew, agent_action, mode_name):
-    hud_surface = pygame.Surface((340, 110), pygame.SRCALPHA)
+def draw_hud(screen, font, ns, ew, agent_action, mode_name, phase_name, rates):
+    hud_surface = pygame.Surface((340, 130), pygame.SRCALPHA)
     hud_surface.fill((20, 20, 20, 220)) 
     screen.blit(hud_surface, (20, 20))
-    pygame.draw.rect(screen, LINE_WHITE, (20, 20, 340, 110), width=1, border_radius=4)
+    pygame.draw.rect(screen, LINE_WHITE, (20, 20, 340, 130), width=1, border_radius=4)
     
     title_font = pygame.font.SysFont(None, 22, bold=True)
     screen.blit(title_font.render(f"MODE: {mode_name}", True, LINE_YELLOW), (35, 30))
-    screen.blit(font.render(f"NS Lane Queue: {ns}/5  |  EW Lane Queue: {ew}/5", True, TEXT_WHITE), (35, 60))
-    screen.blit(font.render(f"Decision: {agent_action}", True, TEXT_WHITE), (35, 90))
+    screen.blit(font.render(f"PHASE: {phase_name} (NS: {int(rates[0]*100)}%, EW: {int(rates[1]*100)}%)", True, LINE_WHITE), (35, 55))
+    screen.blit(font.render(f"NS Lane Queue: {ns}/5  |  EW Lane Queue: {ew}/5", True, TEXT_WHITE), (35, 80))
+    screen.blit(font.render(f"Decision: {agent_action}", True, TEXT_WHITE), (35, 105))
 
 
 def run_visualization(agent, env, mode):
@@ -281,7 +283,7 @@ def run_visualization(agent, env, mode):
                 
             ns, ew, light = state
             last_logic_time = current_time
-
+ 
         for car in animating_cars:
             car.move()
             
@@ -295,10 +297,15 @@ def run_visualization(agent, env, mode):
             car.draw(screen)                  # 3. Draw moving cars
             
         draw_overhead_lights(screen, light)   # 4. Draw lights ON TOP of everything
-        draw_hud(screen, font, ns, ew, agent_action, mode_name) # 5. Draw UI
+        
+        # Get dynamic phase and rates
+        phase_name = env.get_traffic_phase()
+        rates = env.get_arrival_probabilities()
+        draw_hud(screen, font, ns, ew, agent_action, mode_name, phase_name, rates) # 5. Draw UI
         
         pygame.display.flip()
         clock.tick(RENDER_FPS)
+
 
 if __name__ == "__main__":
     import argparse

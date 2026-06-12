@@ -96,19 +96,19 @@ Summarize the test results averaged over 100 episodes in the table below:
 
 | Strategy | Avg Episode Reward | Avg Waiting Cars/Step |
 | :--- | :--- | :--- |
-| **Longest Queue First (LQF)** | **-187.61** | **1.91** |
-| **Trained SARSA** | **-197.20** | **2.00** |
-| **Trained Q-Learning** | **-199.55** | **2.02** |
-| Fixed-Time (5 steps) | -280.40 | 2.83 |
-| Random Switch | -283.71 | 2.86 |
-| Fixed-Time (10 steps) | -343.60 | 3.45 |
+| **Trained SARSA** | **-239.55** | **2.42** |
+| **Trained Q-Learning** | **-242.30** | **2.45** |
+| Longest Queue First (LQF) | -248.42 | 2.51 |
+| Fixed-Time (5 steps) | -336.73 | 3.38 |
+| Random Switch | -342.11 | 3.43 |
+| Fixed-Time (10 steps) | -352.94 | 3.54 |
 
 Insert the policy comparison visual:
 ```markdown
 ![Policy Comparison Chart](policy_comparison.png)
 ```
 
-* **Analysis**: Compare the RL agents with the baselines. Highlight the ~30% improvement in queue lengths of the RL agents over the fixed-time policies. Explain why LQF represents an upper performance bound for this simple 2-queue system.
+* **Analysis**: Compare the RL agents with the baselines. Highlight the ~30% improvement in queue lengths of the RL agents over the fixed-time policies. Note that under dynamic daily traffic phases, the RL agents also outperform the greedy LQF heuristic. Because switching green lights incurs a yellow light penalty (delay cost), greedy policies like LQF switch too frequently during transitional phases, whereas the trained RL agents learn to adaptively hold green lights for the busier lanes to maximize cumulative long-term rewards.
 
 ### 5.3 Hyperparameter Sensitivity
 Insert the hyperparameter tuning heatmap:

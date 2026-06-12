@@ -108,9 +108,10 @@ class TrafficEnv:
                     if self.ew_queue > 0:
                         departures_ew = min(self.ew_queue, random.choice([1, 2]))
                         
-        # 2. Simulate random arrivals (unequal traffic flow)
-        arrivals_ns = 1 if random.random() < 0.6 else 0
-        arrivals_ew = 1 if random.random() < 0.2 else 0
+        # 2. Simulate random arrivals (unequal traffic flow, dynamic demand phases)
+        p_ns, p_ew = self.get_arrival_probabilities()
+        arrivals_ns = 1 if random.random() < p_ns else 0
+        arrivals_ew = 1 if random.random() < p_ew else 0
         
         # 3. Update the queue lengths (clamped between 0 and max_queue)
         self.ns_queue = min(self.max_queue, max(0, self.ns_queue - departures_ns + arrivals_ns))
@@ -127,7 +128,9 @@ class TrafficEnv:
         state = self._get_state()
         info = {
             "departures": (departures_ns, departures_ew),
-            "arrivals": (arrivals_ns, arrivals_ew)
+            "arrivals": (arrivals_ns, arrivals_ew),
+            "phase": self.get_traffic_phase(),
+            "rates": (p_ns, p_ew)
         }
         
         return state, reward, done, info
@@ -135,4 +138,23 @@ class TrafficEnv:
     def _get_state(self) -> Tuple[int, int, int]:
         """Helper method to return the state tuple."""
         return (self.ns_queue, self.ew_queue, self.green_light)
+
+    def get_arrival_probabilities(self) -> Tuple[float, float]:
+        """Returns the (ns_arrival_prob, ew_arrival_prob) based on current steps."""
+        if self.steps < 30:
+            return 0.8, 0.1  # Morning Rush (NS heavy)
+        elif self.steps < 70:
+            return 0.3, 0.3  # Mid-day (Balanced)
+        else:
+            return 0.1, 0.8  # Evening Rush (EW heavy)
+
+    def get_traffic_phase(self) -> str:
+        """Returns the name of the current traffic phase."""
+        if self.steps < 30:
+            return "Morning Rush"
+        elif self.steps < 70:
+            return "Mid-day Balanced"
+        else:
+            return "Evening Rush"
+
 
