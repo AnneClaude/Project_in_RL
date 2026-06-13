@@ -103,20 +103,19 @@ Summarize the test results averaged over 100 episodes in the table below:
 
 | Strategy | Avg Episode Reward | Avg Waiting Cars/Step |
 | :--- | :--- | :--- |
-| **Trained DQN** | **-263.25** | **2.65** |
-| **Trained Q-Learning** | **-266.31** | **2.68** |
-| **Longest Queue First (LQF)** | -277.59 | 2.80 |
-| **Trained SARSA** | -279.96 | 2.82 |
-| Fixed-Time (5 steps) | -345.50 | 3.47 |
-| Random Switch | -363.68 | 3.65 |
-| Fixed-Time (10 steps) | -370.09 | 3.71 |
+| **Longest Queue First (LQF)** | **-187.61** | **1.91** |
+| **Trained SARSA** | **-197.20** | **2.00** |
+| **Trained Q-Learning** | **-199.55** | **2.02** |
+| Fixed-Time (5 steps) | -280.40 | 2.83 |
+| Random Switch | -283.71 | 2.86 |
+| Fixed-Time (10 steps) | -343.60 | 3.45 |
 
 Insert the policy comparison visual:
 ```markdown
 ![Policy Comparison Chart](policy_comparison.png)
 ```
 
-* **Analysis**: Compare the RL agents with the baselines. Observe how the trained DQN and tabular Q-learning agents outperform the greedy LQF heuristic. Explain that because signal switching now incurs a 1-step yellow light penalty (blocking traffic flow and setting departures to 0), the LQF heuristic switches too frequently and loses efficiency. The reinforcement learning agents successfully learned this transition cost, choosing to hold green lights longer in the busier N/S direction, thereby reducing vehicle waiting times by ~25% compared to static fixed-time cycles. DQN achieves the best overall performance (Avg Reward -263.25, Avg Waiting Cars 2.65) by generalizing across the state space using neural network approximation.
+* **Analysis**: Compare the RL agents with the baselines. Highlight the ~30% improvement in queue lengths of the RL agents over the fixed-time policies. Explain why LQF represents an upper performance bound for this simple 2-queue system.
 
 ### 5.3 Hyperparameter Sensitivity
 Insert the hyperparameter tuning heatmap:
