@@ -4,6 +4,7 @@ import random
 import matplotlib.pyplot as plt
 from environment import TrafficEnv
 from agent import QLearningAgent, SARSAAgent
+from dqn_agent import DQNAgent
 
 # Set random seeds for reproducibility
 random.seed(42)
@@ -80,6 +81,45 @@ def train_sarsa(
         
     return episode_rewards
 
+def train_dqn(
+    env: TrafficEnv, 
+    agent: DQNAgent, 
+    num_episodes: int = 1000, 
+    initial_epsilon: float = 1.0, 
+    min_epsilon: float = 0.05, 
+    decay_rate: float = 0.995
+):
+    """Trains a DQN agent."""
+    epsilon = initial_epsilon
+    episode_rewards = []
+    
+    print(f"Starting DQN training for {num_episodes} episodes...")
+    for episode in range(1, num_episodes + 1):
+        state = env.reset()
+        done = False
+        total_reward = 0
+        
+        while not done:
+            action = agent.choose_action(state, epsilon)
+            next_state, reward, done, _ = env.step(action)
+            agent.remember(state, action, reward, next_state, done)
+            agent.replay()
+            state = next_state
+            total_reward += reward
+            
+        episode_rewards.append(total_reward)
+        epsilon = max(min_epsilon, epsilon * decay_rate)
+        
+        # Sync target network weights at the end of each episode
+        agent.update_target_network()
+        
+        if episode % 100 == 0:
+            avg_reward = np.mean(episode_rewards[-100:])
+            print(f"DQN Episode {episode:4d}/{num_episodes} | Avg Reward (last 100): {avg_reward:6.1f} | Epsilon: {epsilon:.3f}")
+            
+    print("DQN Training finished!\n")
+    return episode_rewards
+
 def evaluate_policy(env: TrafficEnv, agent=None, mode: str = "greedy", num_episodes: int = 100, switch_interval: int = 5):
     """
     Evaluates a policy and returns average reward and waiting cars per step.
@@ -145,15 +185,18 @@ def run_comparison():
     # Initialize agents
     q_agent = QLearningAgent(max_queue=5)
     sarsa_agent = SARSAAgent(max_queue=5)
+    dqn_agent = DQNAgent(state_dim=6, action_dim=2)
     
     # Train agents
     q_rewards = train_q_learning(env, q_agent, num_episodes=1000)
     sarsa_rewards = train_sarsa(env, sarsa_agent, num_episodes=1000)
+    dqn_rewards = train_dqn(env, dqn_agent, num_episodes=1000)
     
-    # Save the trained Q-tables
+    # Save the trained models
     np.save("q_table_qlearning.npy", q_agent.q_table)
     np.save("q_table_sarsa.npy", sarsa_agent.q_table)
-    print("Saved Q-tables to 'q_table_qlearning.npy' and 'q_table_sarsa.npy'.")
+    dqn_agent.save("dqn_model.pth")
+    print("Saved Q-tables and DQN weights.")
     
     # Evaluate strategies
     num_eval_episodes = 100
@@ -162,6 +205,7 @@ def run_comparison():
     print("\nEvaluating policies...")
     results["Trained Q-Learning"] = evaluate_policy(env, q_agent, "greedy", num_eval_episodes)
     results["Trained SARSA"] = evaluate_policy(env, sarsa_agent, "greedy", num_eval_episodes)
+    results["Trained DQN"] = evaluate_policy(env, dqn_agent, "greedy", num_eval_episodes)
     results["Longest Queue First (LQF)"] = evaluate_policy(env, None, "lqf", num_eval_episodes)
     results["Fixed-Time (5 steps)"] = evaluate_policy(env, None, "fixed", num_eval_episodes, switch_interval=5)
     results["Fixed-Time (10 steps)"] = evaluate_policy(env, None, "fixed", num_eval_episodes, switch_interval=10)
@@ -180,17 +224,20 @@ def run_comparison():
     window = 50
     
     # Raw rewards with transparency
-    plt.plot(q_rewards, alpha=0.15, color='#1e88e5', label='Q-Learning Raw')
-    plt.plot(sarsa_rewards, alpha=0.15, color='#ffb300', label='SARSA Raw')
+    plt.plot(q_rewards, alpha=0.1, color='#1e88e5', label='Q-Learning Raw')
+    plt.plot(sarsa_rewards, alpha=0.1, color='#ffb300', label='SARSA Raw')
+    plt.plot(dqn_rewards, alpha=0.1, color='#81c784', label='DQN Raw')
     
     # Moving averages
     q_ma = np.convolve(q_rewards, np.ones(window)/window, mode='valid')
     sarsa_ma = np.convolve(sarsa_rewards, np.ones(window)/window, mode='valid')
+    dqn_ma = np.convolve(dqn_rewards, np.ones(window)/window, mode='valid')
     
     plt.plot(np.arange(window-1, len(q_rewards)), q_ma, color='#0d47a1', linewidth=2.5, label='Q-Learning (Moving Avg)')
     plt.plot(np.arange(window-1, len(sarsa_rewards)), sarsa_ma, color='#e65100', linewidth=2.5, label='SARSA (Moving Avg)')
+    plt.plot(np.arange(window-1, len(dqn_rewards)), dqn_ma, color='#2e7d32', linewidth=2.5, label='DQN (Moving Avg)')
     
-    plt.title("Learning Curves (Q-Learning vs. SARSA)", fontsize=14, fontweight='bold', pad=15)
+    plt.title("Learning Curves (Q-Learning vs. SARSA vs. DQN)", fontsize=14, fontweight='bold', pad=15)
     plt.xlabel("Episode", fontsize=12)
     plt.ylabel("Total Episode Reward", fontsize=12)
     plt.legend(loc='lower right', frameon=True, shadow=True)
@@ -206,7 +253,7 @@ def run_comparison():
     cars = [results[s][1] for s in strategies]
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-    colors = ['#1565c0', '#d84315', '#2e7d32', '#f57f17', '#6a1b9a', '#c62828']
+    colors = ['#1565c0', '#d84315', '#2e7d32', '#43a047', '#f57f17', '#6a1b9a', '#c62828']
     
     # Plot rewards
     ax1.set_xticks(range(len(strategies)))

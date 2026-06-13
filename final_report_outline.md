@@ -6,14 +6,14 @@
 ---
 
 ## 1. Abstract
-*Provide a concise summary (150–250 words) of the project: the traffic optimization problem at a simple intersection, the reinforcement learning algorithms used (Q-Learning and SARSA), key findings (e.g., how the RL agents and LQF heuristic compare against fixed-timer algorithms), and the final quantitative conclusions.*
+*Provide a concise summary (150–250 words) of the project: the traffic optimization problem at a simple intersection, the reinforcement learning algorithms used (Q-Learning, SARSA, and DQN), key findings (e.g., how the RL agents and LQF heuristic compare against fixed-timer algorithms), and the final quantitative conclusions.*
 
 ---
 
 ## 2. Introduction & Project Overview
 * **Motivation**: Discuss the economic and environmental costs of traffic congestion. Explain why rigid, pre-timed signal controllers are inefficient, particularly at asymmetric intersections.
 * **Objective**: Train a model-free RL agent to control traffic signals to minimize wait times (queue lengths) at a single 4-way intersection.
-* **Scope**: Compare on-policy (SARSA) and off-policy (Q-Learning) algorithms under varying traffic flow rates (60% spawn chance North/South vs. 20% East/West), using traditional heuristics (fixed-timer, longest-queue-first) as benchmarks.
+* **Scope**: Compare tabular on-policy (SARSA) and off-policy (Q-Learning) algorithms against deep reinforcement learning (DQN) under varying traffic flow rates (60% spawn chance North/South vs. 20% East/West), using traditional heuristics (fixed-timer, longest-queue-first) as benchmarks.
 
 ---
 
@@ -51,7 +51,7 @@ This penalty formulation encourages the agent to clear vehicles as quickly as po
 Explain the implementation details, parameters, and algorithms.
 
 ### 4.1 Reinforcement Learning Algorithms
-Describe the two algorithms implemented and compare their theoretical updates:
+Describe the three algorithms implemented and compare their theoretical updates:
 
 1. **Q-Learning (Off-Policy TD Control)**
    * Off-policy learning estimates the optimal action-value function independent of the agent's behavior policy.
@@ -63,7 +63,14 @@ Describe the two algorithms implemented and compare their theoretical updates:
    * **Update Rule**:
      $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ R + \gamma Q(s', a') - Q(s, a) \right]$$
 
-*Discuss the theoretical difference between on-policy and off-policy updates in the context of this environment (e.g., how SARSA may learn a safer policy during exploration if exploration steps are penalized).*
+3. **Deep Q-Networks (DQN - Function Approximation)**
+   * Deep reinforcement learning replaces the discrete Q-table lookup with a neural network $Q(s, a; \theta)$ parameterized by weights $\theta$. This allows function approximation for continuous or high-dimensional states.
+   * Key stability techniques: **Experience Replay** (breaks correlations in sequential data) and **Target Networks** (stabilizes training targets).
+   * **Loss Function**:
+     $$L(\theta) = \mathbb{E} \left[ \left( R + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta) \right)^2 \right]$$
+     where $\theta^-$ represents the target network parameters.
+
+*Discuss the theoretical difference between on-policy and off-policy updates, and the transition from tabular to neural networks (DQN) in terms of scalability and generalization.*
 
 ### 4.2 Baselines
 Explain the heuristic baselines used for comparison:
@@ -96,19 +103,20 @@ Summarize the test results averaged over 100 episodes in the table below:
 
 | Strategy | Avg Episode Reward | Avg Waiting Cars/Step |
 | :--- | :--- | :--- |
-| **Longest Queue First (LQF)** | **-187.61** | **1.91** |
-| **Trained SARSA** | **-197.20** | **2.00** |
-| **Trained Q-Learning** | **-199.55** | **2.02** |
-| Fixed-Time (5 steps) | -280.40 | 2.83 |
-| Random Switch | -283.71 | 2.86 |
-| Fixed-Time (10 steps) | -343.60 | 3.45 |
+| **Trained DQN** | **-263.25** | **2.65** |
+| **Trained Q-Learning** | **-266.31** | **2.68** |
+| **Longest Queue First (LQF)** | -277.59 | 2.80 |
+| **Trained SARSA** | -279.96 | 2.82 |
+| Fixed-Time (5 steps) | -345.50 | 3.47 |
+| Random Switch | -363.68 | 3.65 |
+| Fixed-Time (10 steps) | -370.09 | 3.71 |
 
 Insert the policy comparison visual:
 ```markdown
 ![Policy Comparison Chart](policy_comparison.png)
 ```
 
-* **Analysis**: Compare the RL agents with the baselines. Highlight the ~30% improvement in queue lengths of the RL agents over the fixed-time policies. Explain why LQF represents an upper performance bound for this simple 2-queue system.
+* **Analysis**: Compare the RL agents with the baselines. Observe how the trained DQN and tabular Q-learning agents outperform the greedy LQF heuristic. Explain that because signal switching now incurs a 1-step yellow light penalty (blocking traffic flow and setting departures to 0), the LQF heuristic switches too frequently and loses efficiency. The reinforcement learning agents successfully learned this transition cost, choosing to hold green lights longer in the busier N/S direction, thereby reducing vehicle waiting times by ~25% compared to static fixed-time cycles. DQN achieves the best overall performance (Avg Reward -263.25, Avg Waiting Cars 2.65) by generalizing across the state space using neural network approximation.
 
 ### 5.3 Hyperparameter Sensitivity
 Insert the hyperparameter tuning heatmap:
@@ -118,6 +126,15 @@ Insert the hyperparameter tuning heatmap:
 ```
 
 * **Analysis**: Discuss how the values of $\alpha$ and $\gamma$ affect learning. Note the poor performance of low $\alpha$ combined with high $\gamma$ (e.g., $0.01$ and $0.99$) due to slow convergence, and how moderate parameters like $\alpha = 0.05, \gamma = 0.8$ achieved optimal performance.
+
+### 5.4 State-Value Functions and Decision Boundaries
+Insert the value function heatmaps comparison:
+
+```markdown
+![Value Functions and Decision Boundaries](value_functions_comparison.png)
+```
+
+* **Analysis**: Discuss how the state-value function $V(s) = \max_a Q(s, a)$ varies with queue lengths and light states. Observe how the value becomes increasingly negative (red) as queues build up in both directions. Explain the asymmetrical decision boundary (dashed outlines) showing the agent prioritizes keeping the light green for the North/South lane (heavy spawn probability) over the East/West lane (light spawn probability) until East/West queues become significantly large.
 
 ---
 
@@ -161,3 +178,10 @@ Provide these exact steps for the course grading assistants to run your code:
    python3 visualizer.py --mode sarsa
    python3 visualizer.py --mode lqf
    ```
+
+4. **Generate Value Function Heatmaps**:
+   ```bash
+   python3 visualize_value_function.py
+   ```
+   *Computes state-values and outputs `value_functions_comparison.png`.*
+

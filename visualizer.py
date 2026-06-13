@@ -229,6 +229,7 @@ def run_visualization(agent, env, mode):
     mode_names = {
         "q_learning": "Trained Q-Learning Agent",
         "sarsa": "Trained SARSA Agent",
+        "dqn": "Trained DQN Agent",
         "lqf": "Longest Queue First Heuristic",
         "fixed": "Fixed-Time Switch (5-steps)",
         "random": "Random Switch"
@@ -251,9 +252,7 @@ def run_visualization(agent, env, mode):
                 agent_action = "YELLOW TRANSITION"
             else:
                 # Action selection based on selected mode
-                if mode == "q_learning" and agent is not None:
-                    raw_action = agent.choose_action(state, epsilon=0.0)
-                elif mode == "sarsa" and agent is not None:
+                if mode in ["q_learning", "sarsa", "dqn"] and agent is not None:
                     raw_action = agent.choose_action(state, epsilon=0.0)
                 elif mode == "lqf":
                     if prev_light == 0:  # NS has green
@@ -309,8 +308,8 @@ if __name__ == "__main__":
         "--mode", 
         type=str, 
         default="q_learning", 
-        choices=["q_learning", "sarsa", "lqf", "fixed", "random"],
-        help="Control mode: q_learning, sarsa, lqf, fixed, random (default: q_learning)"
+        choices=["q_learning", "sarsa", "dqn", "lqf", "fixed", "random"],
+        help="Control mode: q_learning, sarsa, dqn, lqf, fixed, random (default: q_learning)"
     )
     args = parser.parse_args()
     
@@ -335,6 +334,16 @@ if __name__ == "__main__":
             print("Trained Q-table file not found. Training a SARSA agent first (500 episodes)...")
             from compare_algorithms import train_sarsa
             train_sarsa(env, agent, num_episodes=500)
+    elif args.mode == "dqn":
+        from dqn_agent import DQNAgent
+        agent = DQNAgent(state_dim=6, action_dim=2)
+        if os.path.exists("dqn_model.pth"):
+            print("Loading trained weights for DQN...")
+            agent.load("dqn_model.pth")
+        else:
+            print("Trained DQN model file not found. Training a DQN agent first (500 episodes)...")
+            from compare_algorithms import train_dqn
+            train_dqn(env, agent, num_episodes=500)
             
     print(f"\nLaunching visualizer in mode: {args.mode.upper()}")
     run_visualization(agent, env, args.mode)
