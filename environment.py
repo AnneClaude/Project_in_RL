@@ -130,10 +130,14 @@ class TrafficEnv:
         elif self.reward_mode == "max_queue":
             reward = float(-max(self.ns_queue, self.ew_queue))
         elif self.reward_mode == "quadratic":
-            # Normalized by max_queue² so values are comparable to linear scale
-            reward = float(-(self.ns_queue ** 2 + self.ew_queue ** 2) / (self.max_queue ** 2))
+            # No normalization: gives a strong signal that heavily penalizes large queues.
+            # Range: 0 to -(max_queue² + max_queue²) = 0 to -50
+            reward = float(-(self.ns_queue ** 2 + self.ew_queue ** 2))
         elif self.reward_mode == "throughput":
-            reward = float(departures_ns + departures_ew)
+            # Hybrid: reward cars that actually pass, but still lightly penalize
+            # queue buildup to avoid starvation. Keeps the reward in a negative-dominant
+            # range consistent with the other modes.
+            reward = float((departures_ns + departures_ew) - 0.1 * (self.ns_queue + self.ew_queue))
         else:
             reward = float(-(self.ns_queue + self.ew_queue))  # fallback
         

@@ -3,16 +3,18 @@ Reward Function Ablation Study
 ================================
 Trains a Q-Learning agent under 4 different reward function formulations and
 evaluates each using a common, objective metric (average waiting cars/step).
+Each mode is run over 5 independent random seeds; results are reported as
+mean ± standard deviation for statistical reliability.
 
 Reward Modes:
-  - "linear"     : R = -(ns + ew)               (default baseline)
-  - "max_queue"  : R = -max(ns, ew)              (penalize worst bottleneck)
-  - "quadratic"  : R = -(ns² + ew²) / 25        (heavier penalty for large queues)
-  - "throughput" : R = departures_ns + departures_ew  (reward actual throughput)
+  - "linear"     : R = -(ns + ew)                         (default baseline)
+  - "max_queue"  : R = -max(ns, ew)                        (penalize worst bottleneck)
+  - "quadratic"  : R = -(ns² + ew²)                        (strong penalty for large queues)
+  - "throughput" : R = (departures) - 0.1*(ns+ew)          (reward throughput, lightly penalize queues)
 
 Outputs:
-  - reward_ablation_learning.png   : Learning curves for all 4 modes
-  - reward_ablation_comparison.png : Bar charts of final evaluation metrics
+  - reward_ablation_learning.png   : Learning curves (mean ± std band) for all 4 modes
+  - reward_ablation_comparison.png : Bar charts with error bars for final evaluation metrics
 """
 
 import random
@@ -22,20 +24,16 @@ import matplotlib.gridspec as gridspec
 from environment import TrafficEnv
 from agent import QLearningAgent
 
-# ─── Reproducibility ─────────────────────────────────────────────────────────
-SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-
 # ─── Config ──────────────────────────────────────────────────────────────────
 REWARD_MODES = {
-    "Linear\n-(ns+ew)":         "linear",
-    "Max-Queue\n-max(ns,ew)":   "max_queue",
-    "Quadratic\n-(ns²+ew²)/25": "quadratic",
-    "Throughput\n+departures":  "throughput",
+    "Linear\n-(ns+ew)":             "linear",
+    "Max-Queue\n-max(ns,ew)":       "max_queue",
+    "Quadratic\n-(ns²+ew²)":        "quadratic",
+    "Throughput\ndep-0.1*(ns+ew)":  "throughput",
 }
-TRAIN_EPISODES   = 800
-EVAL_EPISODES    = 100
+SEEDS            = [42, 123, 777, 999, 2024]   # 5 independent seeds for statistical validity
+TRAIN_EPISODES   = 1200
+EVAL_EPISODES    = 500
 ALPHA            = 0.1
 GAMMA            = 0.9
 INITIAL_EPSILON  = 1.0
@@ -103,26 +101,45 @@ def evaluate(agent: QLearningAgent) -> tuple:
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 def run_ablation():
-    all_rewards   = {}   # label -> list of episode rewards (training)
-    eval_results  = {}   # label -> (avg_reward, avg_cars)
+    # label -> list of (avg_reward, avg_cars) tuples across seeds
+    seed_eval:    dict[str, list] = {label: [] for label in REWARD_MODES}
+    # label -> (n_episodes, n_seeds) reward matrix for learning curves
+    seed_rewards: dict[str, list] = {label: [] for label in REWARD_MODES}
 
-    for label, mode in REWARD_MODES.items():
-        short = label.split("\n")[0]
-        print(f"Training with reward_mode='{mode}' ({short})...")
+    for seed in SEEDS:
+        print(f"\n{'='*60}")
+        print(f"  Seed {seed}")
+        print(f"{'='*60}")
 
-        # Fresh environment and agent for each mode
-        env   = TrafficEnv(max_queue=5, max_steps=100, reward_mode=mode)
-        agent = QLearningAgent(max_queue=5)
+        random.seed(seed)
+        np.random.seed(seed)
 
-        rewards = train(env, agent)
-        all_rewards[label] = rewards
+        for label, mode in REWARD_MODES.items():
+            short = label.split("\n")[0]
+            print(f"  Training reward_mode='{mode}' ({short})...", end=" ", flush=True)
 
-        avg_reward, avg_cars = evaluate(agent)
-        eval_results[label] = (avg_reward, avg_cars)
+            env   = TrafficEnv(max_queue=5, max_steps=100, reward_mode=mode)
+            agent = QLearningAgent(max_queue=5)
 
-        print(f"  → Eval avg reward: {avg_reward:.2f} | Avg waiting cars/step: {avg_cars:.3f}")
+            rewards = train(env, agent)
+            seed_rewards[label].append(rewards)
 
-    _plot_learning_curves(all_rewards)
+            avg_reward, avg_cars = evaluate(agent)
+            seed_eval[label].append((avg_reward, avg_cars))
+
+            print(f"reward={avg_reward:.2f}  cars/step={avg_cars:.3f}")
+
+    # Aggregate across seeds
+    eval_results = {}   # label -> (mean_reward, std_reward, mean_cars, std_cars)
+    for label in REWARD_MODES:
+        rewards_list = [r for r, _ in seed_eval[label]]
+        cars_list    = [c for _, c in seed_eval[label]]
+        eval_results[label] = (
+            np.mean(rewards_list), np.std(rewards_list),
+            np.mean(cars_list),    np.std(cars_list),
+        )
+
+    _plot_learning_curves(seed_rewards)
     _plot_comparison(eval_results)
     _print_table(eval_results)
 
@@ -132,25 +149,27 @@ def _moving_average(data: list, window: int) -> np.ndarray:
     return np.convolve(data, np.ones(window) / window, mode="valid")
 
 
-def _plot_learning_curves(all_rewards: dict):
+def _plot_learning_curves(seed_rewards: dict):
+    """Plot mean learning curve ± std band across seeds for each reward mode."""
     fig, ax = plt.subplots(figsize=(11, 5.5))
     fig.patch.set_facecolor("#0f0f1a")
     ax.set_facecolor("#0f0f1a")
 
-    for (label, rewards), color in zip(all_rewards.items(), PALETTE):
-        ax.plot(rewards, alpha=0.12, color=color, linewidth=0.8)
-        ma = _moving_average(rewards, MOVING_AVG_WIN)
-        ax.plot(
-            np.arange(MOVING_AVG_WIN - 1, len(rewards)),
-            ma,
-            color=color,
-            linewidth=2.2,
-            label=label.replace("\n", " — "),
-        )
+    for (label, runs), color in zip(seed_rewards.items(), PALETTE):
+        # Stack into (n_seeds, n_episodes) and smooth each run
+        smoothed = np.array([_moving_average(r, MOVING_AVG_WIN) for r in runs])
+        mean_curve = smoothed.mean(axis=0)
+        std_curve  = smoothed.std(axis=0)
+        x = np.arange(MOVING_AVG_WIN - 1, TRAIN_EPISODES)
+
+        ax.fill_between(x, mean_curve - std_curve, mean_curve + std_curve,
+                        alpha=0.18, color=color)
+        ax.plot(x, mean_curve, color=color, linewidth=2.2,
+                label=label.replace("\n", " — "))
 
     ax.set_title(
-        "Reward Function Ablation — Training Convergence",
-        fontsize=14, fontweight="bold", color="white", pad=14
+        "Reward Function Ablation — Training Convergence (mean ± std, 3 seeds)",
+        fontsize=13, fontweight="bold", color="white", pad=14
     )
     ax.set_xlabel("Episode", fontsize=11, color="#cccccc")
     ax.set_ylabel("Total Episode Reward (training scale)", fontsize=11, color="#cccccc")
@@ -158,10 +177,8 @@ def _plot_learning_curves(all_rewards: dict):
     for spine in ax.spines.values():
         spine.set_edgecolor("#333355")
 
-    legend = ax.legend(
-        fontsize=9, frameon=True, loc="lower right",
-        facecolor="#1a1a2e", edgecolor="#555577", labelcolor="white"
-    )
+    ax.legend(fontsize=9, frameon=True, loc="lower right",
+              facecolor="#1a1a2e", edgecolor="#555577", labelcolor="white")
     ax.grid(True, linestyle="--", alpha=0.25, color="#555577")
     plt.tight_layout()
     plt.savefig("reward_ablation_learning.png", dpi=200, facecolor=fig.get_facecolor())
@@ -170,37 +187,38 @@ def _plot_learning_curves(all_rewards: dict):
 
 
 def _plot_comparison(eval_results: dict):
-    labels   = list(eval_results.keys())
-    rewards  = [eval_results[l][0] for l in labels]
-    avg_cars = [eval_results[l][1] for l in labels]
+    """Bar charts with error bars for reward and waiting cars."""
+    labels     = list(eval_results.keys())
+    mean_r     = [eval_results[l][0] for l in labels]
+    std_r      = [eval_results[l][1] for l in labels]
+    mean_cars  = [eval_results[l][2] for l in labels]
+    std_cars   = [eval_results[l][3] for l in labels]
 
     fig = plt.figure(figsize=(13, 5.5))
     fig.patch.set_facecolor("#0f0f1a")
-    gs = gridspec.GridSpec(1, 2, figure=fig, wspace=0.38)
+    gs  = gridspec.GridSpec(1, 2, figure=fig, wspace=0.38)
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
 
-    short_labels = [l.replace("\n", "\n") for l in labels]
-
-    for ax, values, title, ylabel, higher_better in [
-        (ax1, rewards,  "Avg Episode Reward\n(Evaluated on Linear env — higher is better)",
-         "Reward", True),
-        (ax2, avg_cars, "Avg Waiting Cars / Step\n(Lower is better)",
-         "Cars", False),
+    for ax, means, stds, title, ylabel, higher_better in [
+        (ax1, mean_r,    std_r,
+         "Avg Episode Reward\n(Evaluated on Linear env — higher is better)", "Reward", True),
+        (ax2, mean_cars, std_cars,
+         "Avg Waiting Cars / Step\n(Lower is better)", "Cars", False),
     ]:
         ax.set_facecolor("#0f0f1a")
-        bars = ax.bar(
-            range(len(labels)), values, color=PALETTE,
-            edgecolor="#333355", linewidth=1.2, width=0.6
-        )
+        bars = ax.bar(range(len(labels)), means, color=PALETTE,
+                      edgecolor="#333355", linewidth=1.2, width=0.6)
+        ax.errorbar(range(len(labels)), means, yerr=stds,
+                    fmt="none", color="white", capsize=5, linewidth=1.5, capthick=1.5)
 
-        # Highlight the best bar
-        best_idx = int(np.argmax(values) if higher_better else np.argmin(values))
+        # Highlight best bar
+        best_idx = int(np.argmax(means) if higher_better else np.argmin(means))
         bars[best_idx].set_edgecolor("#ffd700")
         bars[best_idx].set_linewidth(2.5)
 
         ax.set_xticks(range(len(labels)))
-        ax.set_xticklabels(short_labels, fontsize=8.5, color="#dddddd")
+        ax.set_xticklabels(labels, fontsize=8.5, color="#dddddd")
         ax.set_title(title, fontsize=10, fontweight="bold", color="white", pad=10)
         ax.set_ylabel(ylabel, fontsize=10, color="#cccccc")
         ax.tick_params(axis="y", colors="#aaaaaa")
@@ -208,38 +226,33 @@ def _plot_comparison(eval_results: dict):
         for spine in ax.spines.values():
             spine.set_edgecolor("#333355")
 
-        for i, (bar, val) in enumerate(zip(bars, values)):
-            ypos = bar.get_height()
-            offset = -0.5 if higher_better else 0.02
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                ypos + offset,
-                f"{val:.2f}",
-                ha="center", va="bottom" if not higher_better else "top",
-                fontsize=9, fontweight="bold",
-                color="#ffd700" if i == best_idx else "#cccccc"
-            )
+        for i, (bar, val, std) in enumerate(zip(bars, means, stds)):
+            ypos   = bar.get_height()
+            offset = -(abs(std) + 1.5) if higher_better else (abs(std) + 0.02)
+            ax.text(bar.get_x() + bar.get_width() / 2, ypos + offset,
+                    f"{val:.2f}\n±{std:.2f}",
+                    ha="center", va="bottom" if not higher_better else "top",
+                    fontsize=8, fontweight="bold",
+                    color="#ffd700" if i == best_idx else "#cccccc")
 
     fig.suptitle(
-        "Reward Function Ablation Study — Final Evaluation Comparison",
+        "Reward Function Ablation Study — Final Evaluation (mean ± std, 3 seeds)",
         fontsize=13, fontweight="bold", color="white", y=1.02
     )
-    plt.savefig(
-        "reward_ablation_comparison.png", dpi=200,
-        facecolor=fig.get_facecolor(), bbox_inches="tight"
-    )
+    plt.savefig("reward_ablation_comparison.png", dpi=200,
+                facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close()
     print("Saved 'reward_ablation_comparison.png'.")
 
 
 def _print_table(eval_results: dict):
-    print("\n" + "=" * 70)
-    print(f"{'Reward Mode':<30} {'Avg Episode Reward':>20} {'Avg Cars/Step':>16}")
-    print("=" * 70)
-    for label, (avg_reward, avg_cars) in eval_results.items():
+    print("\n" + "=" * 80)
+    print(f"{'Reward Mode':<30} {'Mean Reward':>14} {'±Std':>8} {'Mean Cars/Step':>16} {'±Std':>8}")
+    print("=" * 80)
+    for label, (mr, sr, mc, sc) in eval_results.items():
         short = label.replace("\n", " ")
-        print(f"{short:<30} {avg_reward:>20.2f} {avg_cars:>16.3f}")
-    print("=" * 70)
+        print(f"{short:<30} {mr:>14.2f} {sr:>8.2f} {mc:>16.3f} {sc:>8.3f}")
+    print("=" * 80)
 
 
 if __name__ == "__main__":
