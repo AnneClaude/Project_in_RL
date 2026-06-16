@@ -17,14 +17,21 @@ class TrafficEnv:
         0: Keep current green light.
         1: Switch the green light (NS -> EW or EW -> NS).
         
-    Reward:
-        The negative sum of all cars currently waiting in both queues.
-        This encourages the agent to keep queue sizes as small as possible.
+    Reward (configurable via reward_mode):
+        - "linear"    : -(ns_queue + ew_queue)        — minimize total waiting cars (default)
+        - "max_queue" : -max(ns_queue, ew_queue)       — minimize the worst bottleneck
+        - "quadratic" : -(ns_queue² + ew_queue²) / 25 — heavier penalty for large queues
+        - "throughput": departures_ns + departures_ew  — reward actual cars that pass
     """
     
-    def __init__(self, max_queue: int = 5, max_steps: int = 100):
+    REWARD_MODES = ("linear", "max_queue", "quadratic", "throughput")
+
+    def __init__(self, max_queue: int = 5, max_steps: int = 100, reward_mode: str = "linear"):
+        if reward_mode not in self.REWARD_MODES:
+            raise ValueError(f"reward_mode must be one of {self.REWARD_MODES}, got '{reward_mode}'")
         self.max_queue = max_queue
         self.max_steps = max_steps
+        self.reward_mode = reward_mode
         
         # State variables
         self.ns_queue = 0
@@ -117,8 +124,18 @@ class TrafficEnv:
         self.ns_queue = min(self.max_queue, max(0, self.ns_queue - departures_ns + arrivals_ns))
         self.ew_queue = min(self.max_queue, max(0, self.ew_queue - departures_ew + arrivals_ew))
         
-        # 4. Calculate reward (negative sum of waiting cars)
-        reward = float(-(self.ns_queue + self.ew_queue))
+        # 4. Calculate reward based on the configured reward mode
+        if self.reward_mode == "linear":
+            reward = float(-(self.ns_queue + self.ew_queue))
+        elif self.reward_mode == "max_queue":
+            reward = float(-max(self.ns_queue, self.ew_queue))
+        elif self.reward_mode == "quadratic":
+            # Normalized by max_queue² so values are comparable to linear scale
+            reward = float(-(self.ns_queue ** 2 + self.ew_queue ** 2) / (self.max_queue ** 2))
+        elif self.reward_mode == "throughput":
+            reward = float(departures_ns + departures_ew)
+        else:
+            reward = float(-(self.ns_queue + self.ew_queue))  # fallback
         
         # 5. Check termination condition
         self.steps += 1
