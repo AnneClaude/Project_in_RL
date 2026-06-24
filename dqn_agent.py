@@ -31,13 +31,15 @@ class DQNAgent:
         lr: float = 1e-3, 
         gamma: float = 0.9, 
         buffer_size: int = 10000, 
-        batch_size: int = 64
+        batch_size: int = 64,
+        max_queue: int = 5,
     ):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.lr = lr
         self.gamma = gamma
         self.batch_size = batch_size
+        self.max_queue = max_queue
         
         # Verify torch is installed
         if torch is None:
@@ -63,15 +65,15 @@ class DQNAgent:
         """
         Converts the state tuple (ns_queue, ew_queue, green_light) into a normalized 
         continuous vector of size 6.
-        - ns_queue (0-5) -> normalized by 5
-        - ew_queue (0-5) -> normalized by 5
-        - green_light (0-3) -> one-hot encoded vector of size 4
+        - ns_queue (0-max_queue) -> normalized to [0, 1] by dividing by max_queue
+        - ew_queue (0-max_queue) -> normalized to [0, 1] by dividing by max_queue
+        - green_light (0-3)     -> one-hot encoded vector of size 4
         """
         ns, ew, light = state
         
-        # Normalized queues
-        ns_norm = ns / 5.0
-        ew_norm = ew / 5.0
+        # Normalized queues: divide by max_queue so inputs are always in [0, 1]
+        ns_norm = ns / self.max_queue
+        ew_norm = ew / self.max_queue
         
         # One-hot light phase (4 possible states: 0, 1, 2, 3)
         light_onehot = [0.0, 0.0, 0.0, 0.0]

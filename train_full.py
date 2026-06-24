@@ -587,7 +587,7 @@ def load_or_reconstruct_progress(cfg):
 # Main
 # ==============================================================================
 
-def main(quick=False, resume=False):
+def main(quick=False, resume=False, dqn_only=False):
     cfg = QUICK_CONFIG if quick else FULL_CONFIG
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -595,6 +595,8 @@ def main(quick=False, resume=False):
     mode_label = "QUICK TEST" if quick else "FULL TRAINING"
     if resume:
         mode_label += " (RESUMED)"
+    if dqn_only:
+        mode_label += " (DQN-ONLY RE-RUN)"
     sep("=")
     print("  Traffic RL - %s" % mode_label)
     sep("=")
@@ -609,7 +611,22 @@ def main(quick=False, resume=False):
     wall_start  = time.time()
     all_rewards = {"Q-Learning": [], "SARSA": [], "DQN": []}
 
-    if resume:
+    if dqn_only:
+        # Load existing Q/SARSA results so plots and evaluation can include them
+        print("\n" + "=" * 70)
+        print("  DQN-ONLY mode: loading existing Q/SARSA results from saved .npy files...")
+        print("=" * 70)
+        rq = np.load(os.path.join(OUTPUT_DIR, "rewards_qlearning.npy"), allow_pickle=True)
+        rs = np.load(os.path.join(OUTPUT_DIR, "rewards_sarsa.npy"),    allow_pickle=True)
+        all_rewards["Q-Learning"] = [list(r) for r in rq]
+        all_rewards["SARSA"]      = [list(r) for r in rs]
+        best_q_agent = QLearningAgent(max_queue=cfg["max_queue"])
+        best_q_agent.q_table = np.load(os.path.join(OUTPUT_DIR, "q_table_qlearning_seed1_final.npy"))
+        best_sarsa_agent = SARSAAgent(max_queue=cfg["max_queue"])
+        best_sarsa_agent.q_table = np.load(os.path.join(OUTPUT_DIR, "q_table_sarsa_seed1_final.npy"))
+        dqn_start_eps = [1] * len(cfg["seeds"])
+        all_rewards["DQN"] = [[] for _ in cfg["seeds"]]
+    elif resume:
         print("\n" + "=" * 70)
         print("  Resuming training from checkpoints and logs...")
         print("=" * 70)
@@ -621,7 +638,7 @@ def main(quick=False, resume=False):
     # ------------------------------------------------------------------
     # Q-Learning
     # ------------------------------------------------------------------
-    if not resume:
+    if not resume and not dqn_only:
         print("\n" + "=" * 70)
         print("  [1/3] Q-Learning   (%d episodes x %d seeds)" % (cfg["q_episodes"], len(cfg["seeds"])))
         print("=" * 70)
@@ -649,7 +666,7 @@ def main(quick=False, resume=False):
     # ------------------------------------------------------------------
     # SARSA
     # ------------------------------------------------------------------
-    if not resume:
+    if not resume and not dqn_only:
         print("\n" + "=" * 70)
         print("  [2/3] SARSA        (%d episodes x %d seeds)" % (cfg["sarsa_episodes"], len(cfg["seeds"])))
         print("=" * 70)
@@ -693,6 +710,7 @@ def main(quick=False, resume=False):
             gamma       = cfg["gamma"],
             buffer_size = cfg["dqn_buffer"],
             batch_size  = cfg["dqn_batch"],
+            max_queue   = cfg["max_queue"],
         )
         start_ep = dqn_start_eps[i]
         if start_ep > 1:
@@ -781,5 +799,9 @@ if __name__ == "__main__":
         "--resume", action="store_true",
         help="Resume DQN training from latest checkpoint, reusing Q-learning/SARSA final tables"
     )
+    parser.add_argument(
+        "--dqn-only", action="store_true",
+        help="Re-run only the DQN training (loads saved Q/SARSA results), then re-evaluate and re-plot"
+    )
     args = parser.parse_args()
-    main(quick=args.quick, resume=args.resume)
+    main(quick=args.quick, resume=args.resume, dqn_only=args.dqn_only)

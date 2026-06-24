@@ -168,7 +168,7 @@ def _plot_learning_curves(seed_rewards: dict):
                 label=label.replace("\n", " — "))
 
     ax.set_title(
-        "Reward Function Ablation — Training Convergence (mean ± std, 3 seeds)",
+        "Reward Function Ablation — Training Convergence (mean ± std, 5 seeds)",
         fontsize=13, fontweight="bold", color="white", pad=14
     )
     ax.set_xlabel("Episode", fontsize=11, color="#cccccc")
@@ -236,7 +236,7 @@ def _plot_comparison(eval_results: dict):
                     color="#ffd700" if i == best_idx else "#cccccc")
 
     fig.suptitle(
-        "Reward Function Ablation Study — Final Evaluation (mean ± std, 3 seeds)",
+        "Reward Function Ablation Study — Final Evaluation (mean ± std, 5 seeds)",
         fontsize=13, fontweight="bold", color="white", y=1.02
     )
     plt.savefig("reward_ablation_comparison.png", dpi=200,
