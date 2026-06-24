@@ -2,27 +2,12 @@
 %  Traffic Signal Control using Reinforcement Learning
 %  Final Project Report — Introduction to Reinforcement Learning
 %  Dr. Teddy Lazebnik
-%
-%  Compiled with: pdfLaTeX (default Overleaf compiler)
-%
-%  IMAGES TO UPLOAD TO OVERLEAF ROOT:
-%    full_learning_curves.png          (from full_training_results/)
-%    full_convergence_detail.png       (from full_training_results/)
-%    full_policy_comparison.png        (from full_training_results/)
-%    hyperparameter_tuning.png         (project root)
-%    reward_ablation_learning.png      (project root)
-%    reward_ablation_comparison.png    (project root)
-%    value_functions_comparison.png    (project root)
 % ============================================================
 \documentclass[12pt]{article}
 
-% --- Packages (pdfLaTeX compatible) ---
+% --- Packages ---
 \usepackage[margin=1in]{geometry}
 \usepackage{setspace}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{helvet}                    % Helvetica = Arial equivalent
-\renewcommand{\familydefault}{\sfdefault}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -35,7 +20,12 @@
 \usepackage{enumitem}
 \usepackage{float}
 
-% --- Line spacing (1.5 as required) ---
+% --- Font: Arial (requires XeLaTeX or LuaLaTeX) ---
+% If compiling with pdfLaTeX, comment out \setmainfont and use helvet instead:
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% --- Line spacing ---
 \setstretch{1.5}
 
 % --- Hyperlink style ---
@@ -46,7 +36,7 @@
     urlcolor=blue!60!black
 }
 
-% --- Custom column types ---
+% --- Custom column type for tables ---
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
 \newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
@@ -60,17 +50,12 @@
 \begin{titlepage}
     \centering
     \vspace*{2cm}
-
     {\LARGE\textbf{Traffic Signal Control Using\\[6pt] Reinforcement Learning}}\\[1.5cm]
-
     {\large Final Project Report}\\[0.4cm]
     {\large Introduction to Reinforcement Learning}\\[0.4cm]
     {\large Dr.\ Teddy Lazebnik}\\[2cm]
-
-    {\large Silin Michael}\\[0.5cm]
-
-    {\large \today}\\[3cm]
-
+    {\large Silin Michael (i.d. 327946109)}\\[0.5cm]
+    {\large Anne Claude Abinader (i.d. 331181909)}\\[0.5cm]
     \vfill
 \end{titlepage}
 
@@ -90,16 +75,16 @@ Q-Network (DQN) agents over multiple independent seeds.
 
 All three RL agents substantially outperform every traditional baseline. Against the
 best heuristic---the Longest Queue First (LQF) greedy controller---the trained
-Q-Learning agent achieves a \textbf{14\%} improvement in average episode reward
-($-923$ vs.\ $-1077$) and reduces average waiting cars per step from $3.63$ to
-$3.12$. Compared with fixed-time switching policies, the improvement reaches
-\textbf{73\%}. We additionally conduct a reward function ablation study across four
+DQN agent achieves a \textbf{17\%} improvement in average episode reward
+($-896$ vs.\ $-1074$) and reduces average waiting cars per step from $3.62$ to
+$3.02$. Compared with fixed-time switching policies, the improvement reaches
+\textbf{74\%}. We additionally conduct a reward function ablation study across four
 formulations and five seeds, finding that a throughput-oriented reward most effectively
 minimises queue lengths. A hyperparameter grid search over learning rate $\alpha$ and
 discount factor $\gamma$ confirms that moderate values ($\alpha{=}0.1$,
-$\gamma{=}0.95$) are optimal. Together, these results demonstrate that even lightweight
-tabular RL agents can learn near-optimal adaptive signal control strategies and
-consistently outperform rule-based controllers.
+$\gamma{=}0.95$) are optimal. Together, these results demonstrate that model-free RL
+agents---both tabular and deep---can learn near-optimal adaptive signal control
+strategies and consistently outperform rule-based controllers.
 \end{abstract}
 
 \newpage
@@ -111,7 +96,6 @@ consistently outperform rule-based controllers.
 % ============================================================
 
 \subsection{Motivation}
-
 Traffic congestion is one of the most pervasive infrastructure challenges in modern
 cities. In the United States alone, drivers waste an average of 54 hours per year
 sitting in traffic, at an economic cost estimated at \$87 billion annually
@@ -128,7 +112,6 @@ hand-crafted heuristics, RL agents can discover non-obvious policies and adapt t
 traffic patterns that change within an episode.
 
 \subsection{Objective}
-
 The objective of this project is to train and evaluate model-free RL agents to control
 a traffic signal at a single four-way intersection, with the goal of minimising total
 vehicle waiting time. We implement and compare three algorithms spanning the
@@ -137,7 +120,6 @@ control), and Deep Q-Networks (DQN, neural function approximation). Each is benc
 against four non-learning baselines of increasing sophistication.
 
 \subsection{Scope}
-
 The environment models a single intersection with two competing traffic streams (North/South
 and East/West) under time-varying and asymmetric arrival rates. All algorithms are
 trained from scratch with no domain-specific prior knowledge. We evaluate final performance,
@@ -153,7 +135,6 @@ We model the intersection control problem as a finite Markov Decision Process
 $(S, A, R, P)$.
 
 \subsection{State Space ($S$)}
-
 The state is a three-element tuple:
 \[
     s = (q_\text{NS},\; q_\text{EW},\; \phi)
@@ -167,24 +148,20 @@ The state is a three-element tuple:
           Phase~0 = NS~green; Phase~1 = EW~green; Phase~2 = NS~yellow (transitioning
           to EW~green); Phase~3 = EW~yellow (transitioning to NS~green).
 \end{itemize}
-
 The full-training state space size is $(q_\text{max}+1)^2 \times 4 = 16 \times 16
 \times 4 = \mathbf{1{,}024}$ discrete states.
 
 \subsection{Action Space ($A$)}
-
 The action space is binary: $a \in \{0, 1\}$.
 \begin{itemize}[noitemsep]
     \item $a = 0$ (Keep): maintain the current green signal.
     \item $a = 1$ (Switch): initiate a transition to the opposite green phase via a
           yellow intermediate step.
 \end{itemize}
-
 A \emph{minimum green-time constraint} prevents the agent from switching more
 frequently than every 3 steps, avoiding destructive rapid toggling.
 
 \subsection{Reward Function ($R$)}
-
 The default reward at time step $t$ is:
 \[
     R_t = -(q_\text{NS} + q_\text{EW})
@@ -201,7 +178,6 @@ where $d_\text{NS}, d_\text{EW}$ are the number of departures (cars that pass
 through) in the current step.
 
 \subsection{Environment Dynamics}
-
 \paragraph{Arrivals.} The environment simulates three time-varying traffic phases
 within each episode (length $T_\text{max}=300$ steps):
 \begin{itemize}[noitemsep]
@@ -223,7 +199,6 @@ departures occur during yellow phases.
 \subsection{Reinforcement Learning Algorithms}
 
 \subsubsection{Q-Learning (Off-Policy TD Control)}
-
 Q-Learning \cite{watkins1992} estimates the optimal action-value function $Q^*(s,a)$
 independently of the behaviour policy. After each transition $(s, a, r, s')$, the
 Q-table is updated as:
@@ -236,7 +211,6 @@ behaviour. This off-policy character can cause slight overestimation in stochast
 environments but generally leads to aggressive, efficient convergence.
 
 \subsubsection{SARSA (On-Policy TD Control)}
-
 SARSA \cite{rummery1994} is the on-policy counterpart: it updates using the
 \emph{actually chosen} next action $a'$:
 \[
@@ -248,7 +222,6 @@ exploration. In our environment, both algorithms converge to similar final perfo
 but SARSA's on-policy nature leads to slightly more cautious early-training behaviour.
 
 \subsubsection{Deep Q-Network (DQN)}
-
 For problems with large or continuous state spaces, tabular Q-tables become
 impractical. DQN \cite{mnih2015} replaces the Q-table with a neural network
 $Q(s,a;\theta)$ parameterised by weights $\theta$:
@@ -271,7 +244,6 @@ $[0,1]$ regardless of the maximum queue size. The target network is synchronised
 10 episodes.
 
 \subsection{Baselines}
-
 Four non-learning baselines are used for comparison:
 \begin{itemize}[noitemsep]
     \item \textbf{Fixed-Time (5-step)}: switches the signal every 5 steps, regardless
@@ -287,7 +259,6 @@ Four non-learning baselines are used for comparison:
 
 \subsection{Hyperparameter Tuning}
 \label{sec:hparam}
-
 Before full-scale training, we conducted a grid search over the two most critical
 tabular hyperparameters using Q-Learning (500 training episodes, 50 evaluation episodes,
 $q_\text{max}=5$):
@@ -295,7 +266,6 @@ $q_\text{max}=5$):
     \item Learning rate $\alpha \in \{0.01,\; 0.05,\; 0.1,\; 0.2\}$
     \item Discount factor $\gamma \in \{0.80,\; 0.90,\; 0.99\}$
 \end{itemize}
-
 The results, visualised as a heatmap in Figure~\ref{fig:hparam}, show that moderate
 values ($\alpha=0.1$, $\gamma=0.9$--$0.95$) yield the best performance. Very low
 $\alpha$ (slow learning) combined with high $\gamma$ (strong future discounting)
@@ -303,9 +273,7 @@ produced the worst results, as the agent could not accumulate sufficient updates
 500 episodes. Based on this analysis, the full training used $\alpha=0.1$, $\gamma=0.95$.
 
 \subsection{Training Protocol}
-
 Full-scale training was conducted with the following configuration:
-
 \begin{center}
 \begin{tabular}{lll}
 \toprule
@@ -331,7 +299,6 @@ Eval episodes & \multicolumn{2}{c}{200} \\
 % ============================================================
 
 \subsection{Training Convergence}
-
 Figure~\ref{fig:curves} shows the mean $\pm$ standard deviation learning curves across
 3 seeds for each algorithm, smoothed with a 500-episode moving average (50-episode for
 DQN).
@@ -384,7 +351,6 @@ with its off-policy, max-bootstrapping update.
 
 \subsection{Policy Evaluation}
 \label{sec:eval}
-
 After training, each algorithm's best agent (selected by final-10\% mean reward across
 seeds) was evaluated greedily for 200 episodes. Results are presented in
 Table~\ref{tab:eval} and visualised in Figure~\ref{fig:comparison}.
@@ -399,14 +365,14 @@ better). \textit{Avg.\ Wait}: mean waiting cars per step (lower is better).}
 \toprule
 \textbf{Strategy} & \textbf{Avg.\ Episode Reward} & \textbf{Avg.\ Wait (cars/step)} \\
 \midrule
-\textbf{Trained Q-Learning} & $\mathbf{-923.1}$ & $\mathbf{3.116}$ \\
-Trained DQN                 & $-933.6$          & $3.155$ \\
-Trained SARSA               & $-946.1$          & $3.195$ \\
+\textbf{Trained DQN}        & $\mathbf{-895.6}$ & $\mathbf{3.023}$ \\
+Trained SARSA               & $-931.3$          & $3.145$ \\
+Trained Q-Learning          & $-952.9$          & $3.213$ \\
 \midrule
-Longest Queue First (LQF)   & $-1{,}076.9$      & $3.633$ \\
-Fixed-Time (10-step)        & $-3{,}122.4$      & $10.417$ \\
-Random Switch               & $-3{,}386.5$      & $11.293$ \\
-Fixed-Time (5-step)         & $-3{,}507.6$      & $11.696$ \\
+Longest Queue First (LQF)   & $-1{,}074.0$      & $3.623$ \\
+Fixed-Time (10-step)        & $-3{,}127.6$      & $10.437$ \\
+Random Switch               & $-3{,}381.6$      & $11.277$ \\
+Fixed-Time (5-step)         & $-3{,}511.3$      & $11.709$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -418,20 +384,19 @@ Fixed-Time (5-step)         & $-3{,}507.6$      & $11.696$ \\
           ($q_\text{max}=5$, 1{,}000 episodes), LQF was actually the top performer.
           With a harder, larger environment and sufficient training, RL agents learn
           a richer policy that surpasses the greedy rule.
-
-    \item \textbf{RL vs.\ LQF}: the best RL agent (Q-Learning) reduces average waiting
-          cars from $3.63$ to $3.12$ --- a \textbf{14\%} improvement in queue
-          management.
-
+    \item \textbf{RL vs.\ LQF}: the best RL agent (DQN) reduces average waiting
+          cars from $3.62$ to $3.02$ --- a \textbf{17\%} improvement in queue
+          management, corresponding to roughly one fewer car waiting per step.
     \item \textbf{RL vs.\ Fixed-Time}: against the best fixed-time controller
-          (10-step), the improvement is \textbf{70\%} in reward and $3.3\times$ fewer
+          (10-step), the improvement is \textbf{71\%} in reward and $3.5\times$ fewer
           waiting cars per step.
-
-    \item \textbf{Q-Learning $\geq$ DQN $\geq$ SARSA}: all three RL agents are
-          statistically close ($<3\%$ spread in reward). The slight edge of Q-Learning
-          and DQN over SARSA is consistent with their off-policy training (maximising
-          over future actions regardless of exploration).
-
+    \item \textbf{DQN $\geq$ SARSA $\geq$ Q-Learning}: all three RL agents are
+          statistically close ($<7\%$ spread in reward). DQN's advantage is
+          consistent with its neural function approximation---it generalises more
+          effectively across the large 1,024-state space and exploits experience
+          replay to reduce sample correlation. After correcting a state-normalisation
+          bug (divisor fixed from 5 to $q_\text{max}=15$), DQN's superiority became
+          clear.
     \item \textbf{LQF is a strong baseline} but has an inherent flaw: it is purely
           reactive and cannot anticipate the time-varying demand shifts (e.g., morning
           rush $\to$ evening rush). RL agents implicitly encode temporal context through
@@ -448,7 +413,6 @@ Fixed-Time (5-step)         & $-3{,}507.6$      & $11.696$ \\
 \end{figure}
 
 \subsection{Hyperparameter Sensitivity}
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.7\textwidth]{hyperparameter_tuning.png}
@@ -468,7 +432,6 @@ balance between learning speed and long-horizon optimisation.
 
 \subsection{Reward Function Ablation Study}
 \label{sec:ablation}
-
 To determine how the choice of reward shaping affects agent performance, we trained
 Q-Learning under all four reward formulations (Section~\ref{eq:maxq}--\ref{eq:tput})
 across 5 independent seeds, then evaluated all agents on a common neutral metric
@@ -520,7 +483,6 @@ entirely, it provides a weaker gradient signal and leads to more variable learni
 \end{figure}
 
 \subsection{Value Function Analysis}
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{value_functions_comparison.png}
@@ -534,7 +496,6 @@ entirely, it provides a weaker gradient signal and leads to more variable learni
 
 Figure~\ref{fig:value} reveals the structure of the learned value functions. Several
 insights are apparent:
-
 \begin{enumerate}[noitemsep]
     \item \textbf{Value decreases monotonically with queue length}: states with large
           queues in both directions (top-right corner of each heatmap) are strongly
@@ -553,7 +514,6 @@ insights are apparent:
 % ============================================================
 
 \subsection{Summary of Findings}
-
 This project demonstrates that model-free RL agents can effectively learn adaptive
 traffic signal control policies that outperform all tested rule-based strategies,
 including the commonly used LQF heuristic. The results are consistent across
@@ -562,31 +522,26 @@ are robust rather than artefacts of any particular configuration.
 
 The throughput-based reward is the most effective formulation, and the choice of
 algorithm ($\alpha=0.1$, $\gamma=0.95$) is robust over the tested hyperparameter
-range. Q-Learning achieves the best final evaluation reward, but all three RL agents
-are statistically close.
+range. DQN achieves the best final evaluation reward ($-895.6$), followed closely
+by SARSA ($-931.3$) and Q-Learning ($-952.9$), with all three well ahead of baselines.
 
 \subsection{Limitations}
-
 \begin{enumerate}
     \item \textbf{Simplified state space}: queue lengths are discretised integers
           capped at $q_\text{max}=15$. Real-world traffic involves continuous vehicle
           counts, lane-level tracking, and spatial queue spillback---all requiring more
           expressive state representations.
-
     \item \textbf{Single intersection}: the environment models one isolated
           intersection. Real networks feature correlated flows across multiple
           intersections, requiring multi-agent or centralised coordination.
-
     \item \textbf{Independent Bernoulli arrivals}: vehicle arrivals are modelled as
           independent Bernoulli trials per step. Real traffic exhibits temporal
           correlation (platoon effects), spatial correlation (green waves), and
           stochastic demand bursts not captured by this model.
-
     \item \textbf{No yellow-light penalty}: although the environment implements yellow
           phases that block departures, the yellow phase duration (1 step) is shorter
           than real-world all-red clearance times. Real switching costs are higher,
           which would further incentivise the agent to switch less frequently.
-
     \item \textbf{DQN state normalisation}: in the full-scale training run, the DQN
           input normalization was calibrated to a queue divisor of 5 rather than the
           actual $q_\text{max}=15$, resulting in input features in the range $[0, 3]$
@@ -599,25 +554,24 @@ are statistically close.
 % ============================================================
 \section{Conclusion}
 % ============================================================
-
 We have presented a comprehensive study of reinforcement learning for autonomous
 traffic signal control at a single four-way intersection. Three algorithms --- Q-Learning,
 SARSA, and DQN --- were trained, tuned, and evaluated against four non-learning
 baselines.
 
 The principal conclusions are:
-
 \begin{enumerate}[noitemsep]
     \item \textbf{RL outperforms all baselines}, including the greedy LQF heuristic, in
           a sufficiently complex environment ($q_\text{max}=15$, $T=300$). The
-          improvement over LQF is $\sim$14\% in reward and waiting-time metrics.
+          improvement over LQF is $\sim$17\% in reward and waiting-time metrics.
     \item \textbf{All three RL variants converge reliably} across seeds, with $\sim$70\%
           improvement from initial random behaviour.
     \item \textbf{Throughput-based reward shaping} yields the best and most consistent
           performance across seeds, followed closely by the simpler linear formulation.
-    \item \textbf{DQN matches tabular performance in $12\times$ fewer episodes},
-          demonstrating the sample-efficiency advantage of neural function approximation
-          even in small state spaces.
+    \item \textbf{DQN is the top-performing algorithm} ($-895.6$ reward, $3.02$ avg.\ wait)
+          and achieves comparable performance to tabular methods in $12\times$ fewer
+          episodes, demonstrating the sample-efficiency and generalisation advantage of
+          neural function approximation.
     \item \textbf{Hyperparameter robustness}: moderate values ($\alpha=0.1$,
           $\gamma=0.95$) are optimal and performance is not highly sensitive to small
           deviations.
@@ -632,7 +586,6 @@ sensors or camera feeds with convolutional DQN variants.
 \section*{References}
 % ============================================================
 \addcontentsline{toc}{section}{References}
-
 \begin{thebibliography}{9}
 
 \bibitem{watkins1992}
@@ -679,7 +632,6 @@ In \textit{Advances in Neural Information Processing Systems (NeurIPS)}.
 \section*{Appendix: Reproduction Instructions}
 \addcontentsline{toc}{section}{Appendix: Reproduction Instructions}
 % ============================================================
-
 All code is available in the project repository. Requirements: Python 3.9+,
 \texttt{numpy}, \texttt{matplotlib}, \texttt{torch}.
 

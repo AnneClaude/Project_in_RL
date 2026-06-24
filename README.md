@@ -8,7 +8,7 @@ This repository implements a suite of reinforcement learning agents (**Q-Learnin
 
 The intersection is implemented as a discrete simulation (`environment.py`) with queue caps and realistic transition constraints:
 * **State Space**: A tuple of `(ns_queue, ew_queue, green_light_state)` where:
-  * `ns_queue` and `ew_queue` are queue lengths capped at `5`.
+  * `ns_queue` and `ew_queue` are queue lengths capped at `15` in full training (or `5` in quick mode/ablation).
   * `green_light_state` indicates which lane currently has the green phase:
     * `0`: North/South Green
     * `1`: East/West Green
@@ -20,10 +20,10 @@ The intersection is implemented as a discrete simulation (`environment.py`) with
 * **Constraints**:
   * **Minimum Green Duration**: Green signals must be held for at least `3` steps before a switch is allowed, preventing erratic toggling.
   * **Yellow Transition Penalty**: Switching lights triggers a `1`-step yellow light phase during which all departures are blocked (departures = 0). This creates a transition delay cost that the agent must optimize.
-* **Dynamic Traffic Demand**: The simulation models a full day divided into three distinct flow patterns over 100 steps:
-  * **Morning Rush (Steps 0–30)**: Heavy North/South flow (80% spawn chance), light East/West flow (10% spawn chance).
+* **Dynamic Traffic Demand**: The simulation models three distinct flow patterns over `300` steps:
+  * **Morning Rush (Steps 1–30)**: Heavy North/South flow (80% spawn chance), light East/West flow (10% spawn chance).
   * **Mid-day Off-Peak (Steps 31–70)**: Balanced traffic (30% spawn chance for both directions).
-  * **Evening Rush (Steps 71–100)**: Light North/South flow (10% spawn chance), heavy East/West flow (80% spawn chance).
+  * **Evening Rush (Steps 71–300)**: Light North/South flow (10% spawn chance), heavy East/West flow (80% spawn chance).
 
 ---
 
@@ -45,26 +45,26 @@ The intersection is implemented as a discrete simulation (`environment.py`) with
 
 ---
 
-## 📊 Performance Comparison
+## 📊 Performance Comparison (Full-Scale Training)
 
-After training Q-Learning, SARSA, and DQN for `1,000` episodes, we evaluated each policy over `100` test episodes under dynamic demand:
+After full training across 3 seeds (`20,000` episodes for Q/SARSA, `2,500` for DQN with queue cap `15`), we evaluated the best agents over `200` test episodes (`300` steps each) under dynamic demand:
 
 | Strategy | Avg Episode Reward | Avg Waiting Cars/Step | Performance vs. Random |
 | :--- | :---: | :---: | :---: |
-| **Trained DQN** | **-229.26** | **2.31** | **+32.5%** |
-| **Trained Q-Learning** | **-236.92** | **2.39** | **+30.2%** |
-| **Trained SARSA** | **-242.70** | **2.45** | **+28.5%** |
-| Longest Queue First (LQF) | -246.62 | 2.49 | +27.4% |
-| Random Switch | -339.49 | 3.40 | Baseline |
-| Fixed-Time Switch (5-steps) | -343.89 | 3.46 | -1.3% |
-| Fixed-Time Switch (10-steps) | -352.56 | 3.54 | -3.8% |
+| **Trained DQN** | **-895.64** | **3.02** | **+73.5%** |
+| **Trained SARSA** | **-931.27** | **3.15** | **+72.5%** |
+| **Trained Q-Learning** | **-952.91** | **3.21** | **+71.8%** |
+| Longest Queue First (LQF) | -1073.95 | 3.62 | +68.2% |
+| Fixed-Time Switch (10-steps) | -3127.62 | 10.44 | +7.5% |
+| Random Switch | -3381.57 | 11.28 | Baseline |
+| Fixed-Time Switch (5-steps) | -3511.29 | 11.71 | -3.8% |
 
 ### Key Findings
-1. **DQN Wins**: DQN achieves the lowest queue accumulation (2.31 cars/step) because its normalized vector state representation and continuous weight optimization allow it to capture finer state-action nuances compared to tabular representations.
-2. **RL Outperforms LQF**: While LQF is a strong dynamic heuristic, it operates greedily. The RL agents learn to anticipate the cost of the yellow transition phase and time switches strategically, yielding significantly higher total rewards.
-3. **Fixed-Time Fails**: Fixed-time timing plans perform poorly because they cannot adapt to asymmetric rush-hour flows, causing major vehicle backups.
+1. **DQN is the Top Performer**: DQN achieves the lowest queue accumulation (3.02 cars/step) and highest average reward (-895.64) because its normalized vector state representation and continuous weight optimization generalise more effectively over the larger state space (1,024 states) than tabular agents.
+2. **RL Outperforms LQF Heuristic**: While LQF is a strong reactive heuristic, it operates greedily. The trained RL agents learn to anticipate traffic flow transitions and time switches strategically to minimize overall delays, resulting in a **17%** improvement in queue length reduction over LQF.
+3. **Fixed-Time is Ineffective**: Fixed-time policies (especially 5-step cycles) are highly inefficient because they cannot adapt to asymmetric flow patterns, leading to extreme congestion during peak rush hours.
 
-*Plots of the learning curves and final evaluations are saved automatically as `learning_curves.png` and `policy_comparison.png`.*
+*Plots of the full-scale learning curves and evaluations are saved under `full_training_results/` as `full_learning_curves.png` and `full_policy_comparison.png`.*
 
 ---
 
