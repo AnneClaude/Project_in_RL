@@ -633,7 +633,8 @@ def main(quick=False, resume=False, dqn_only=False):
         all_rewards, best_q_agent, best_sarsa_agent, dqn_start_eps = load_or_reconstruct_progress(cfg)
         print("  Loaded Q-Learning and SARSA results from checkpoints/logs.")
     else:
-        dqn_start_eps = [1, 1, 1]
+        dqn_start_eps = [1] * len(cfg["seeds"])
+        all_rewards["DQN"] = [[] for _ in cfg["seeds"]]
 
     # ------------------------------------------------------------------
     # Q-Learning
