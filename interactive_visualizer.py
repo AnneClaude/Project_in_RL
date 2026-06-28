@@ -321,7 +321,9 @@ def run_interactive_visualization(ai_agent):
 if __name__ == "__main__":
     import os
     
-    # Load trained SARSA agent as AI opponent (has the highest average reward)
+    # Load trained Q-Learning agent as AI opponent.
+    # Note: uses the quick-trained model (max_queue=5) compatible with the interactive env.
+    # DQN is the best overall agent in the full training run, but requires PyTorch at runtime.
     ai_agent = SARSAAgent(max_queue=5)
     if os.path.exists("q_table_sarsa.npy"):
         print("Loading trained Q-table for SARSA agent...")

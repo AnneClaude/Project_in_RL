@@ -6,7 +6,7 @@ This repository implements three model-free reinforcement learning (RL) algorith
 
 The intersection simulation runs for 300 steps and models dynamic traffic demands, mimicking morning, mid-day, and evening rush hours with varying vehicle spawn rates.
 
-* **State Space:** Tracks the number of waiting cars in the North/South and East/West directions (capped at 15) and the current traffic light phase. This creates a total of 1,024 possible states.
+* **State Space:** Tracks the number of waiting cars in the North/South and East/West directions (capped at 15 in full training, capped at 5 in the real-time visualizer demos for display clarity) and the current traffic light phase. The full training configuration creates 1,024 possible states.
 * **Action Space:** A binary choice at each step to either maintain the current green light (0) or initiate a phase switch (1). A minimum 3-step green-time constraint is enforced to prevent rapid, inefficient toggling.
 * **Reward Function:** Designed to minimize traffic jams. The primary model penalizes the total number of waiting vehicles per step. 
 
