@@ -1,7 +1,7 @@
 # Traffic Signal Control using Reinforcement Learning
 
 **Final Project — Introduction to Reinforcement Learning**  
-**Silin Michael (327946109) · Anne Claude Abinader (331181909)**  
+**Silin Michael · Anne Claude Abinader**  
 **Instructor: Dr. Teddy Lazebnik**
 
 ---
