@@ -53,9 +53,9 @@ All agents trained with 3 random seeds and evaluated over **200 greedy episodes*
 
 | Strategy | Avg. Episode Reward | Avg. Wait (cars/step) | vs. Best Heuristic (LQF) |
 |:---|:---:|:---:|:---:|
-| 🥇 **Trained DQN** | **−895.6** | **3.02** | **+17%** |
-| 🥈 Trained SARSA | −931.3 | 3.15 | +13% |
-| 🥉 Trained Q-Learning | −952.9 | 3.21 | +11% |
+|  **Trained DQN** | **−895.6** | **3.02** | **+17%** |
+|  Trained SARSA | −931.3 | 3.15 | +13% |
+|  Trained Q-Learning | −952.9 | 3.21 | +11% |
 | Longest Queue First (LQF) | −1074.0 | 3.62 | — |
 | Fixed-Time (10-step) | −3127.6 | 10.44 | −191% |
 | Random Switch | −3381.6 | 11.28 | −215% |
